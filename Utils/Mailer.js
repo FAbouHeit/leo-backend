@@ -1,18 +1,11 @@
-import nodemailer from 'nodemailer';
 import dotenv from "dotenv"
 dotenv.config()
 
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: process.env.MAILER_EMAIL,
-    pass: process.env.MAILER_PASSWORD,
-  },
-});
+import transporter from "../Configuration/mailer.config.js";
 
 // Function to send activation email
-const sendActivationEmail = async (user, activationToken) => {
-  const activationLink = `http://localhost:5000/activate/${activationToken}`;
+export const sendActivationEmail = async (user, activationToken) => {
+  const activationLink = `http://localhost:5000/authenticate/activate/${activationToken}`;
 
   const mailOptions = {
     from: process.env.MAILER_EMAIL,

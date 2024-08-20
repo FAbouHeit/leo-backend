@@ -3,9 +3,10 @@ import bcrypt from "bcrypt";
 
 import { generateToken } from "../Utils/Jwt.js";
 import { authenticationErrorHandler } from "../Utils/ErrorHandler.js";
+import { generateActivationToken } from "../Utils/ActivationToken.js";
+import { sendActivationEmail } from "../Utils/Mailer.js";
 import { nameRegex, emailRegex, passwordRegex } from "../Utils/Regex.js";
 import { removeNonAlpha } from "../Helper/removeNonAlpha.js";
-import { createActivationCode } from "../Helper/createActivationCode.js";
 
 export const signIn = async (req, res) => {
   const { userName, email, password } = req.body;
@@ -87,11 +88,11 @@ export const signUp = async (req, res) => {
   const salt = 12;
   const hashedPassword = await bcrypt.hash(password, salt);
   const userName = removeNonAlpha(firstName) + "." + removeNonAlpha(lastName);
-  const activationCode = createActivationCode();
+  const activationCode = generateActivationToken();
 
   //send code.
   try {
-    await User.create({
+    let user = await User.create({
       firstName,
       lastName,
       userName,
@@ -102,6 +103,7 @@ export const signUp = async (req, res) => {
       role: "admin",
       isActivated: false,
     });
+    sendActivationEmail(user, activationCode);
     return res.status(200).json({ message: "User created successfully." });
   } catch (err) {
     return res.status(500).json({
@@ -114,7 +116,6 @@ export const signUp = async (req, res) => {
 
 export const activateAccount = async (req, res) => {
   const { token } = req.params;
-
   try {
     const user = await User.findOne({ activationCode: token });
 
