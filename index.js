@@ -63,3 +63,10 @@ process.on("SIGTERM", async () => {
   }
   process.exit(0);
 });
+
+process.once('SIGUSR2', async () => {
+  if (isConnectedToDB) {
+  await closeMongoDBConnection();
+  process.kill(process.pid, 'SIGUSR2'); // Let Nodemon restart the process
+  }
+});

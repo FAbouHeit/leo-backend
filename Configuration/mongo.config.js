@@ -24,7 +24,7 @@ const connectToMongoDB = async () => {
       return;
     } catch (error) {
       console.error(
-        `Error connecting to MongoDB (attempt ${i + 1}):\n`,
+        `Error connecting to MongoDB (attempt ${i + 1}):\n\n`,
         error.message
       );
       if (i < DB_CONNECTION_ATTEMPTS) {
@@ -36,7 +36,11 @@ const connectToMongoDB = async () => {
     }
   }
   console.error(`Failed to connect to MongoDB after, ${DB_CONNECTION_ATTEMPTS}, attempts!`);
-  throw new Error("Failed to connect to MongoDB!");
+
+  /*
+  * Re-attempt connection every hour if it fails.
+  */
+  console.error(`\n\nAttempting to reconnect after an hour.\n`);
 };
 
 /*

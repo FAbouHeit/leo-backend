@@ -8,10 +8,13 @@ import { sendActivationEmail } from "../Utils/Mailer.js";
 import { nameRegex, emailRegex, passwordRegex } from "../Utils/Regex.js";
 import { removeNonAlpha } from "../Helper/removeNonAlpha.js";
 
+import { ACCOUNT_ACTIVATION_TIME_LIMIT } from "../Configuration/constants.js";
+import { compareTwoTimes } from "../Helper/compareTime.js";
+
 export const signIn = async (req, res) => {
   const { userName, email, password } = req.body;
 
-  if (!email || !userName) {
+  if (!email && !userName) {
     return authenticationErrorHandler(res, 400, "signin_missing_fields");
   }
   if (!password) {
@@ -19,8 +22,8 @@ export const signIn = async (req, res) => {
   }
 
   try {
-    const userField = userName || email;
-    const user = await User.findOne({ userField });
+    const userField = userName ? { userName } : { email };
+    const user = await User.findOne(userField);
 
     if (!user) {
       return authenticationErrorHandler(res, 401, "signin_user_not_found");
@@ -31,14 +34,16 @@ export const signIn = async (req, res) => {
     if (!isValidPassword) {
       return authenticationErrorHandler(res, 401, "signin_invalid_credentials");
     }
-
     const token = generateToken(user);
 
     return res
       .cookie("access_token", token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
+        httpOnly: true, 
+        secure: true, 
+        sameSite: "Strict", 
+        maxAge: 3600000, // 1 hour.
+        path: "/", // Limits the cookie to a specific path
+        domain: process.env.CLIENT_PATH, // Specifies the domain to which the cookie belongs (optional).
       })
       .status(200)
       .json({ message: "Login successful" });
@@ -127,13 +132,24 @@ export const activateAccount = async (req, res) => {
       );
     }
 
-    user.isActivated = true;
-    await user.save();
+    let canActivate = compareTwoTimes(
+      ACCOUNT_ACTIVATION_TIME_LIMIT,
+      user.activationCodeCreatedAt
+    );
+    if (canActivate) {
+      user.isActivated = true;
+      await user.save();
 
-    return res
-      .status(200)
-      .json({ message: "Account is activated successfully." });
-  } catch (error) {
+      return res
+        .status(200)
+        .json({ message: "Account is activated successfully." });
+    } else {
+      console.log("too late!");
+      return res
+        .status(400)
+        .json({ message: "Please request a new activation code." });
+    }
+  } catch (err) {
     return res.status(500).json({
       error: "Error: Internal Server Error!",
       errorMessage: err.message,
