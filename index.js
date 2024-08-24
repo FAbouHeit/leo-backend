@@ -32,7 +32,7 @@ const attemptPortListening = (port) => {
   app
     .listen(port, async () => {
       console.log("Server Started successfully!");
-      await connectToMongoDB();
+      // await connectToMongoDB();
     })
     .on("error", async (err) => {
       console.log("Error! Terminated attempt to listen to port.");

@@ -1,11 +1,11 @@
 import express from "express";
-// import { authenticate } from "../Middleware/Auth.js";
+import { authenticate } from "../Middleware/Auth";
 
 import {
   signIn,
   signUp,
   activateAccount,
-  // logout,
+  signOut,
   // refreshHandler,
 } from "../Controllers/Authentication.Controller.js";
   
@@ -14,7 +14,7 @@ import {
   userRouter.post("/sign-in", signIn);
   userRouter.post("/sign-up", signUp);
   userRouter.get("/activate/:token", activateAccount);
-  // userRouter.get("/log-out", logout);
+  userRouter.get("/sign-out", signOut);
   // userRouter.post("/refresh", refreshHandler);
   
   export default userRouter;

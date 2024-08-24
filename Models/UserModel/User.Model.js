@@ -32,23 +32,47 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 12,
     },
+    isOTP: {
+      type: Boolean,
+      required: true,
+    },
     isActivated: {
+      type: Boolean,
+      required: true,
+    },
+    isDisabled: {
       type: Boolean,
       required: true,
     },
     role: {
       type: String,
       required: true,
-      enum: ["admin", "user"],
+      enum: ["super", "admin", "user"],
     },
     activationCode: {
       type: String,
-      required: true,
+      required: false,
     },
     activationCodeCreatedAt: {
       type: Date,
-      required: true,
+      required: false,
     },
+    tfaCode: {
+      type: String,
+      required: false,
+    },
+    tfaCodeCreatedAt: {
+      type: Date,
+      required: false
+    },
+    tfaAttemptNumber: {
+      type: Number,
+      required: true
+    },
+    tfaSent: {
+      type: Number,
+      required: true,
+    }
   },
   {
     timestamps: true,
