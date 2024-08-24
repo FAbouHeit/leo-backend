@@ -57,6 +57,7 @@ export const createAdmin = async (req, res) => {
       tfaCode: null,
       tfaCodeCreatedAt: null,
       tfaAttemptNumber: 0,
+      tfaSent: 0
     });
     return res.status(200).json({
       message: "User created successfully.",
