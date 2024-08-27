@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { generateToken } from "../Utils/Jwt.js";
 import { authenticationErrorHandler } from "../Utils/ErrorHandler.js";
 import { generateActivationToken } from "../Utils/ActivationToken.js";
-import { send2FACode, sendActivationEmail } from "../Utils/Mailer.js";
+import { send2FACode, sendActivationEmail, sendPasswordChangedEmail } from "../Utils/Mailer.js";
 import { passwordRegex } from "../Utils/Regex.js";
 
 import {
@@ -71,10 +71,8 @@ export const signIn = async (req, res) => {
         });
       }
     }
-
-    let deviceId = req.cookies.leo_deviceId;
-
-    if (!deviceId) {
+    const deviceId = req.cookies.leo_device_id;
+    if (!deviceId || deviceId == undefined) {
       if (!user.tfaCode) {
         try {
           let twoFactorAuthCode = create2FACode();
@@ -96,7 +94,12 @@ export const signIn = async (req, res) => {
           });
         }
       } else {
-        return res.status(200).json({ message: "Please enter your Two-Factor Authorization Code to proceed." })
+        return res
+          .status(200)
+          .json({
+            message:
+              "Please enter your Two-Factor Authorization Code to proceed.",
+          });
       }
     }
 
@@ -136,6 +139,7 @@ export const validate2FA = async (req, res) => {
       return authenticationErrorHandler(res, 400, "signup_user_doesnt_exist");
     }
 
+
     const isValidCode = bcrypt.compare(twoFactorAuthCode, user.tfaCode);
     const withinTimeLimit = compareTwoTimes(
       TWO_FACTOR_AUTH_TIME_LIMIT,
@@ -143,29 +147,28 @@ export const validate2FA = async (req, res) => {
     );
 
     if (!isValidCode || !withinTimeLimit) {
-    
       user.tfaAttemptNumber += 1;
       if (user.tfaAttemptNumber >= 3) {
         user.isDisabled = true;
       }
       await user.save();
       return authenticationErrorHandler(res, 400, "signup_user_doesnt_exist");
-    
     } else {
-        deviceId = uuidv4();
-        res.cookie("leo_deviceId", deviceId, {
-          httpOnly: true,
-          maxAge: 365 * 24 * 60 * 60 * 1000,
-        }); // 1 year
-        user.tfaCode = null;
-        user.tfaCodeCreatedAt = null;
-        user.tfaAttemptNumber = 0;
-        user.tfaSent = 0;
-        await user.save();
-        return res
+      const deviceId = uuidv4();
+      res.cookie("leo_device_id", deviceId, {
+        httpOnly: true,
+        maxAge: 365 * 24 * 60 * 60 * 1000,
+        secure: true,
+      }); // 1 year
+      user.tfaCode = null;
+      user.tfaCodeCreatedAt = null;
+      user.tfaAttemptNumber = 0;
+      user.tfaSent = 0;
+      await user.save();
+      return res
         .status(200)
         .json({ message: "Two-factor Authorization Code accepted." });
-      } 
+    }
   } catch (err) {
     return res.status(500).json({
       error: "Error: Internal Server Error!",
@@ -175,18 +178,18 @@ export const validate2FA = async (req, res) => {
   }
 };
 
-export const requestNewTFA = async(req,res) => {
-  const { email } = req.params;
-  
+export const requestNewTFA = async (req, res) => {
+  const { email } = req.body;
+
   if (!email) {
-    return authenticationErrorHandler(res, 400, "signup_user_doesnt_exist");
+    return authenticationErrorHandler(res, 400, "tfa_email_not_provided");
   }
 
   try {
-    let user = User.findOne(email);
+    let user = await User.findOne({ email });
 
-    if(!user){
-      return authenticationErrorHandler(res, 400, "signup_user_doesnt_exist");
+    if (!user) {
+      return authenticationErrorHandler(res, 400, "tfa_user_doesnt_exist");
     }
 
     const withinTimeLimit = compareTwoTimes(
@@ -194,13 +197,14 @@ export const requestNewTFA = async(req,res) => {
       user.tfaCodeCreatedAt
     );
 
-    if(!withinTimeLimit){ 
-
-    if(user.tfaSent > 3){
-      user.isDisabled = true;
-      await user.save()
-      return authenticationErrorHandler(res, 400, "signup_user_doesnt_exist");
-    }
+    if (!withinTimeLimit) {
+      if (user.tfaSent >= 3) {
+        user.isDisabled = true;
+        user.tfaCode = null;
+        user.tfaCodeCreatedAt = null;
+        await user.save();
+        return authenticationErrorHandler(res, 400, "tfa_exceed_limit");
+      }
 
       let twoFactorAuthCode = create2FACode();
       const salt = 12;
@@ -209,13 +213,13 @@ export const requestNewTFA = async(req,res) => {
       user.tfaCodeCreatedAt = new Date();
       user.tfaSent += 1;
       await user.save();
-      
+
       await send2FACode(user, twoFactorAuthCode);
       return res
-      .status(200)
-      .json({ message: "2FA Code created and sent Successfully." });
+        .status(200)
+        .json({ message: "2FA Code created and sent Successfully." });
     } else {
-      return authenticationErrorHandler(res, 400, "signup_user_doesnt_exist");
+      return authenticationErrorHandler(res, 401, "tfa_cant_request_anymore");
     }
   } catch (err) {
     return res.status(500).json({
@@ -224,7 +228,7 @@ export const requestNewTFA = async(req,res) => {
       errCode: 1,
     });
   }
-}
+};
 
 export const activateAccount = async (req, res) => {
   const { token } = req.params;
@@ -268,6 +272,7 @@ export const activateAccount = async (req, res) => {
 export const signOut = async (req, res) => {
   try {
     res.clearCookie("leo_access_token");
+    res.clearCookie("leo_device_id");
     return res.status(200).json({ message: "Signed out successfully." });
   } catch (err) {
     return res.status(500).json({
@@ -294,7 +299,7 @@ export const changePassword = async (req, res) => {
   }
 
   try {
-    const user = await User.findOne(email);
+    let user = await User.findOne({email});
 
     if (!user) {
       return authenticationErrorHandler(res, 401, "signin_user_not_found");

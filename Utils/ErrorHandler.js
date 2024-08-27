@@ -20,7 +20,13 @@ export const authenticationErrorHandler = (res, status, error_description) => {
         error: "Error: Invalid Credentials!",
         errCode: 104,
       });
+      case "tfa_cant_request":
+        return res.status(status).json({
+          error: "Error: Can't Request TFA code yet!",
+          errCode: 401,
+        });
     default:
+      console.log("Unhandled Error: " + error_description)
       return res.status(status).json({
         error: "Error: Internal Server Error!",
         errCode: 999,

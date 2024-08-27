@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 import {
@@ -10,6 +11,7 @@ import {
 } from "./Configuration/mongo.config.js";
 
 import authenticationRoutes from "./Routes/Authentication.Route.js";
+import userRouter from "./Routes/User.Route.js";
 
 const corsOption = {
   origin: [process.env.CLIENT_PATH, "http://localhost:3000"],
@@ -22,8 +24,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors(corsOption));
+app.use(cookieParser());
 
 app.use("/authenticate", authenticationRoutes);
+app.use("/super", userRouter);
 
 /*
  * Activate the server. Takes in a port as a parameter.
@@ -32,7 +36,7 @@ const attemptPortListening = (port) => {
   app
     .listen(port, async () => {
       console.log("Server Started successfully!");
-      // await connectToMongoDB();
+      await connectToMongoDB();
     })
     .on("error", async (err) => {
       console.log("Error! Terminated attempt to listen to port.");

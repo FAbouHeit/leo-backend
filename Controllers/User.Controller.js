@@ -1,6 +1,8 @@
-import { createOneTimePassword } from "../Helper/codeGenerator";
-import User from "../Models/UserModel/User.Model";
-import { nameRegex } from "../Utils/Regex";
+import { createOneTimePassword } from "../Helper/codeGenerator.js";
+import removeNonAlpha from "../Helper/removeNonAlpha.js";
+import User from "../Models/UserModel/User.Model.js";
+import { emailRegex, nameRegex } from "../Utils/Regex.js";
+import bcrypt from "bcrypt";
 
 export const createAdmin = async (req, res) => {
   const { firstName, lastName, email, isSuper } = req.body;
