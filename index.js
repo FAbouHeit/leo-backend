@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import fs from 'fs'
+import rateLimit from "express-rate-limit";
 dotenv.config();
 
 import {
@@ -19,15 +21,48 @@ const corsOption = {
   optionsSuccessStatus: 200,
 };
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+
 const PORT = process.env.PORT;
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors(corsOption));
 app.use(cookieParser());
+app.use(limiter)
 
 app.use("/authenticate", authenticationRoutes);
 app.use("/super", userRouter);
+app.get('/crash', (req, res) => {
+  res.send("Server will crash in a few seconds...");
+  // Delay before crashing to allow the response to be sent
+  // setTimeout(() => {
+  //   console.log("Crashing the server now...");
+  //   process.exit(1); // Exit with a failure code to indicate a crash
+  // }, 5000); // Adjust delay as needed
+
+  let x = 0
+  while (true){
+    x++
+    setInterval(() => {
+      const memoryUsage = process.memoryUsage();
+      console.log(`Memory Usage: RSS: ${memoryUsage.rss / 1024 / 1024} MB, Heap Total: ${memoryUsage.heapTotal / 1024 / 1024} MB, Heap Used: ${memoryUsage.heapUsed / 1024 / 1024} MB`);
+    }, 5000); // Log every minute
+    
+  }
+
+});
+let x = 0
+
+app.get('/test', (req,res)=> {
+  console.log("OK" + x)
+  x++;
+  res.status(200).send("OK")
+})
 
 /*
  * Activate the server. Takes in a port as a parameter.
@@ -36,23 +71,38 @@ const attemptPortListening = (port) => {
   app
     .listen(port, async () => {
       console.log("Server Started successfully!");
-      await connectToMongoDB();
+      // await connectToMongoDB();
     })
     .on("error", async (err) => {
       console.log("Error! Terminated attempt to listen to port.");
       if (isConnectedToDB) {
         await closeMongoDBConnection();
       }
-    });
+        reject(err);
+      });
 };
-attemptPortListening(PORT);
+
+(() => {
+  try {
+    const server = attemptPortListening(PORT);
+    // Server started successfully, continue with other logic if needed
+  } catch (err) {
+    const logger = fs.createWriteStream('error.log', { flags: 'a' });
+    logger.write(`${new Date().toISOString()}: ${err.message}\n`);
+    logger.write(`${err.stack}\n\n`);
+    logger.end();
+
+    console.log("Failed to start server:", err.message);
+  }
+})();
 
 /**
  * Adds signal listeners to the process
  */
 process.on("SIGINT", async () => {
-  console.log("\n\nReceived SIGINT signal, closing Mongoose connection...");
+  console.log("\n\nReceived SIGINT signal.");
   if (isConnectedToDB) {
+    console.log("Closing Mongoose connection...")
     await closeMongoDBConnection();
     console.log("Mongoose connection closed due to app termination.");
   }

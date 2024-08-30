@@ -1,0 +1,10 @@
+Error Handling:
+
+1- Check Heartbeat every 1 hour.
+
+Heartbeat: 
+    * check if the server if running
+    * check if db connection is established
+    * check if there exists at least 2 super users
+    * check if number of requests is exceptionally high
+    * check if login attempts is exceptionally high
